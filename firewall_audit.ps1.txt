@@ -1,0 +1,38 @@
+# Firewall Audit Script (Windows)
+# Outputs a security report about Windows Defender Firewall configuration
+
+$OutDir = "reports"
+$TimeStamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$OutFile = "$OutDir\firewall_audit_$TimeStamp.txt"
+
+New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+
+"=== Windows Firewall Audit Report ===" | Out-File $OutFile
+"Generated: $(Get-Date)" | Out-File $OutFile -Append
+"Computer: $env:COMPUTERNAME" | Out-File $OutFile -Append
+"User: $env:USERNAME" | Out-File $OutFile -Append
+"" | Out-File $OutFile -Append
+
+"--- Firewall Profiles (Domain/Private/Public) ---" | Out-File $OutFile -Append
+Get-NetFirewallProfile |
+    Select-Object Name, Enabled, DefaultInboundAction, DefaultOutboundAction, NotifyOnListen, LogAllowed, LogBlocked, LogFileName |
+    Format-Table -AutoSize | Out-String | Out-File $OutFile -Append
+
+"" | Out-File $OutFile -Append
+"--- Firewall Rules Summary (Enabled Rules) ---" | Out-File $OutFile -Append
+$enabledRules = Get-NetFirewallRule | Where-Object { $_.Enabled -eq "True" }
+"Enabled rules count: $($enabledRules.Count)" | Out-File $OutFile -Append
+
+"" | Out-File $OutFile -Append
+"--- Top 30 Enabled Inbound Allow Rules (High Risk Review) ---" | Out-File $OutFile -Append
+Get-NetFirewallRule -Direction Inbound -Action Allow -Enabled True |
+    Select-Object -First 30 DisplayName, Profile, Direction, Action, Enabled |
+    Format-Table -AutoSize | Out-String | Out-File $OutFile -Append
+
+"" | Out-File $OutFile -Append
+"--- Listening Ports (netstat) ---" | Out-File $OutFile -Append
+netstat -ano | Select-String "LISTENING" | Out-File $OutFile -Append
+
+"" | Out-File $OutFile -Append
+"Report saved to: $OutFile" | Out-File $OutFile -Append
+Write-Host "✅ Firewall audit complete. Report saved to $OutFile"
